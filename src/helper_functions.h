@@ -8,13 +8,15 @@
 #ifndef HELPER_FUNCTIONS_H_
 #define HELPER_FUNCTIONS_H_
 
+#define _USE_MATH_DEFINES
+
 #include <sstream>
 #include <fstream>
 #include <math.h>
 #include <vector>
 #include "map.h"
 
-/*
+ /*
  * Struct representing one position/control measurement.
  */
 struct control_s {

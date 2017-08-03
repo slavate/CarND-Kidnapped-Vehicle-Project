@@ -53,82 +53,86 @@ int main()
 
     if (length && length > 2 && data[0] == '4' && data[1] == '2')
     {
-
       auto s = hasData(std::string(data));
+      //cout << "s: " << s << endl << endl;
+
       if (s != "") {
-      	
-      	
         auto j = json::parse(s);
         std::string event = j[0].get<std::string>();
-        
+
         if (event == "telemetry") {
           // j[1] is the data JSON object
-
-
           if (!pf.initialized()) {
 
-          	// Sense noisy position data from the simulator
-			double sense_x = std::stod(j[1]["sense_x"].get<std::string>());
-			double sense_y = std::stod(j[1]["sense_y"].get<std::string>());
-			double sense_theta = std::stod(j[1]["sense_theta"].get<std::string>());
+            // Sense noisy position data from the simulator
+			      double sense_x = std::stod(j[1]["sense_x"].get<std::string>());
+			      double sense_y = std::stod(j[1]["sense_y"].get<std::string>());
+			      double sense_theta = std::stod(j[1]["sense_theta"].get<std::string>());
 
-			pf.init(sense_x, sense_y, sense_theta, sigma_pos);
-		  }
-		  else {
-			// Predict the vehicle's next state from previous (noiseless control) data.
-		  	double previous_velocity = std::stod(j[1]["previous_velocity"].get<std::string>());
-			double previous_yawrate = std::stod(j[1]["previous_yawrate"].get<std::string>());
+			      pf.init(sense_x, sense_y, sense_theta, sigma_pos);
+		      }
+		      else {
+			    // Predict the vehicle's next state from previous (noiseless control) data.
+		      double previous_velocity = std::stod(j[1]["previous_velocity"].get<std::string>());
+			    double previous_yawrate = std::stod(j[1]["previous_yawrate"].get<std::string>());
 
-			pf.prediction(delta_t, sigma_pos, previous_velocity, previous_yawrate);
-		  }
+			    pf.prediction(delta_t, sigma_pos, previous_velocity, previous_yawrate);
+		      }
 
-		  // receive noisy observation data from the simulator
-		  // sense_observations in JSON format [{obs_x,obs_y},{obs_x,obs_y},...{obs_x,obs_y}]
-		  	vector<LandmarkObs> noisy_observations;
-		  	string sense_observations_x = j[1]["sense_observations_x"];
-		  	string sense_observations_y = j[1]["sense_observations_y"];
+		      // receive noisy observation data from the simulator
+		      // sense_observations in JSON format [{obs_x,obs_y},{obs_x,obs_y},...{obs_x,obs_y}]
+		  	  vector<LandmarkObs> noisy_observations;
+		  	  string sense_observations_x = j[1]["sense_observations_x"];
+		  	  string sense_observations_y = j[1]["sense_observations_y"];
 
-		  	std::vector<float> x_sense;
-  			std::istringstream iss_x(sense_observations_x);
+		  	  std::vector<float> x_sense;
+  			  std::istringstream iss_x(sense_observations_x);
 
-  			std::copy(std::istream_iterator<float>(iss_x),
+  			  std::copy(std::istream_iterator<float>(iss_x),
         	std::istream_iterator<float>(),
         	std::back_inserter(x_sense));
 
         	std::vector<float> y_sense;
-  			std::istringstream iss_y(sense_observations_y);
+  			  std::istringstream iss_y(sense_observations_y);
 
-  			std::copy(std::istream_iterator<float>(iss_y),
+  			  std::copy(std::istream_iterator<float>(iss_y),
         	std::istream_iterator<float>(),
         	std::back_inserter(y_sense));
 
-        	for(int i = 0; i < x_sense.size(); i++)
-        	{
+        	for(int i = 0; i < x_sense.size(); i++){
         		LandmarkObs obs;
         		obs.x = x_sense[i];
-				obs.y = y_sense[i];
-				noisy_observations.push_back(obs);
+				    obs.y = y_sense[i];
+				    noisy_observations.push_back(obs);
         	}
 
-		  // Update the weights and resample
-		  pf.updateWeights(sensor_range, sigma_landmark, noisy_observations, map);
-		  pf.resample();
+		      // Update the weights and resample
+		      pf.updateWeights(sensor_range, sigma_landmark, noisy_observations, map);
+		      pf.resample();
 
-		  // Calculate and output the average weighted error of the particle filter over all time steps so far.
-		  vector<Particle> particles = pf.particles;
-		  int num_particles = particles.size();
-		  double highest_weight = -1.0;
-		  Particle best_particle;
-		  double weight_sum = 0.0;
-		  for (int i = 0; i < num_particles; ++i) {
-			if (particles[i].weight > highest_weight) {
-				highest_weight = particles[i].weight;
-				best_particle = particles[i];
-			}
-			weight_sum += particles[i].weight;
-		  }
-		  cout << "highest w " << highest_weight << endl;
-		  cout << "average w " << weight_sum/num_particles << endl;
+		      // Calculate and output the average weighted error of the particle filter over all time steps so far.
+		      vector<Particle> particles = pf.particles;
+		      int num_particles = particles.size();
+		      double highest_weight = -1.0;
+          double smallest_weight = 1.0;
+		      Particle best_particle;
+		      double weight_sum = 0.0;
+		      for (int i = 0; i < num_particles; ++i) {
+			      if (particles[i].weight > highest_weight) {
+				      highest_weight = particles[i].weight;
+				      best_particle = particles[i];
+			      }
+            if (particles[i].weight < smallest_weight) {
+              smallest_weight = particles[i].weight;
+            }
+			      weight_sum += particles[i].weight;
+		      }
+
+		      //cout << "highest w " << highest_weight << endl;
+          //cout << "smallest w " << smallest_weight << endl;
+          //cout << "average w " << weight_sum / num_particles << endl << endl;
+          //cout << "best_particle x " << best_particle.x << endl;
+          //cout << "best_particle y " << best_particle.y << endl;
 
           json msgJson;
           msgJson["best_particle_x"] = best_particle.x;
@@ -144,6 +148,9 @@ int main()
           // std::cout << msg << std::endl;
           ws.send(msg.data(), msg.length(), uWS::OpCode::TEXT);
 	  
+        }
+        else {
+          cout << "event: " << event << endl << endl;
         }
       } else {
         std::string msg = "42[\"manual\",{}]";
@@ -178,7 +185,9 @@ int main()
   });
 
   int port = 4567;
-  if (h.listen(port))
+  
+  //if (h.listen(port)) // for ubuntu
+  if (h.listen("127.0.0.1", port)) // for windows
   {
     std::cout << "Listening to port " << port << std::endl;
   }
