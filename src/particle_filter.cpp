@@ -139,23 +139,11 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
       particles[i].sense_x.push_back(xt);
       particles[i].sense_y.push_back(yt);
       // initialize associations
-      particles[i].associations.push_back(0);
+      particles[i].associations.push_back(-1);
     }
   }
 
-  // Consider only landmarks in predefined range
-  std::vector<LandmarkObs> landmarks_in_range;
-  for (int i = 0; i < map_landmarks.landmark_list.size(); ++i) {
-    // map signals from single_landmark_s (map) structure to LandmarkObs (helpers) structure
-    LandmarkObs l;
-    l.id = map_landmarks.landmark_list[i].id_i;
-    l.x = map_landmarks.landmark_list[i].x_f;
-    l.y = map_landmarks.landmark_list[i].y_f;
-    double dist = sqrt(pow(l.x, 2) + pow(l.y, 2));
-    if (dist <= sensor_range) {
-      landmarks_in_range.push_back(l);
-    }
-  }
+  //TODO: Consider only landmarks in predefined range
   
   double sigma_x = std_landmark[0];
   double sigma_y = std_landmark[1];
@@ -165,35 +153,36 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
     // Observations Multivariate-Gaussian Probability
     std::vector<double> obs_weights;
     // Go through all predicted measurements for particles
-    for (int l = 0; l < particles[i].sense_x.size(); ++l) {
+    for (int n = 0; n < particles[i].sense_x.size(); ++n) {
       // Go through all landmarks
       // temp vector with distances from particle to the landmarks
       std::vector<double> r;
       
-      double x = particles[i].sense_x[l];
-      double y = particles[i].sense_y[l];
+      double x = particles[i].sense_x[n];
+      double y = particles[i].sense_y[n];
       
-      for (int j = 0; j < map_landmarks.landmark_list.size(); ++j) {
+      for (int m = 0; m < map_landmarks.landmark_list.size(); ++m) {
         // Calculate euclidean distance between each landmark and predicted particle position
-        r.push_back(dist(x, y,
-                         map_landmarks.landmark_list[j].x_f, map_landmarks.landmark_list[j].y_f));
+        double range = dist(x, y,
+                            map_landmarks.landmark_list[m].x_f, map_landmarks.landmark_list[m].y_f);
+        r.push_back(range);
       }
       // find the best match with shortest distance
       int match_index = distance(begin(r), min_element(begin(r), end(r)));
-      particles[i].associations[l] = map_landmarks.landmark_list[match_index].id_i;
+      particles[i].associations[n] = map_landmarks.landmark_list[match_index].id_i;
       //cout << "association for particle Nr " << i << ", measurement Nr " << l << " is landmark: " << particles[i].associations[l] << endl;
       
       double mu_x = map_landmarks.landmark_list[match_index].x_f;
-      double mu_y = map_landmarks.landmark_list[match_index].y_f;      
+      double mu_y = map_landmarks.landmark_list[match_index].y_f;
       double c1 = 1 / (2 * M_PI * sigma_x * sigma_y);
       // calculate weight
       double w = c1 * exp(-0.5 * (pow((x - mu_x), 2) / pow(sigma_x, 2) +
                                   pow((y - mu_y), 2) / pow(sigma_y, 2)));
 
       //avoid very small weights
-      if (w < 1E-100) {
-        cout << "updateWeights() - Warning - w is very small!!!" << endl;
-        w = 1E-50;
+      if (w < 1E-20) {
+        cout << "updateWeights() - Error - w is very small!!!" << endl;
+        w = 1E-4;
       }
       
       obs_weights.push_back(w);
@@ -205,7 +194,7 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
       new_weight *= obs_weights[k];
 
       if (new_weight < 1E-100) {
-        cout << "updateWeights() - Warning - very small weight!!!" << endl;
+        cout << "updateWeights() - Error - very small weight!!!" << endl;
       }
     }
 
