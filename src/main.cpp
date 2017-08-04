@@ -185,17 +185,28 @@ int main()
   });
 
   int port = 4567;
+  #ifdef linux
+    if (h.listen(port)) // for ubuntu
+    {
+      std::cout << "Listening to port " << port << std::endl;
+    }
+    else
+    {
+      std::cerr << "Failed to listen to port" << std::endl;
+      return -1;
+    } 
+  #else
+    if (h.listen("127.0.0.1", port)) // for windows
+    {
+      std::cout << "Listening to port " << port << std::endl;
+    }
+    else
+    {
+      std::cerr << "Failed to listen to port" << std::endl;
+      return -1;
+    }
+  #endif
   
-  //if (h.listen(port)) // for ubuntu
-  if (h.listen("127.0.0.1", port)) // for windows
-  {
-    std::cout << "Listening to port " << port << std::endl;
-  }
-  else
-  {
-    std::cerr << "Failed to listen to port" << std::endl;
-    return -1;
-  }
   h.run();
 }
 
